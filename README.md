@@ -58,6 +58,16 @@ The entire system runs on your own hardware — no external API keys, no data se
 
 ## Architecture
 
+<p align="center">
+  <img src="./Architechture.png"
+       alt="Blix.ai Architecture"
+       width="100%">
+</p>
+
+<p align="center">
+  <em>Figure 1: High-level architecture of Blix.ai.</em>
+</p>
+
 ```
 Student
     │
