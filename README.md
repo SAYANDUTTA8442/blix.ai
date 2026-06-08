@@ -1,10 +1,10 @@
 <div align="center">
 
-# Blix.ai
+# 🚀 Blix.ai
 
-**An adaptive AI tutor and study planner for CS & engineering students**
+**Adaptive AI Tutor & Study Planner**
 
-*Multi-user chat platform · PDF syllabus analyzer · LLM-powered study plans*
+*Multi-user AI tutoring platform · PDF syllabus analyzer · LLM-powered study plans · Local-first*
 
 [![Node.js](https://img.shields.io/badge/Node.js-v18%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
@@ -19,61 +19,157 @@
 
 ## Overview
 
-Blix.ai is a full-stack AI learning platform built on top of locally-hosted LLMs via [Ollama](https://ollama.com). It combines a production-grade multi-user chat backend with an automated study plan generator that reads your exam syllabus PDF and produces a weighted, day-by-day revision schedule.
+Blix.ai is a full-stack AI learning platform built on locally-hosted LLMs via [Ollama](https://ollama.com). It combines a production-grade multi-user AI tutoring backend with an automated study planner that reads your exam syllabus PDF and produces a weighted, day-by-day revision schedule.
 
-The system runs entirely on your own hardware — no external API keys, no data sent to third-party servers.
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        Blix.ai Platform                     │
-│                                                             │
-│  Browser / Mobile                                           │
-│       │                                                     │
-│       ▼                                                     │
-│  Node.js Backend  ←──── JWT Auth ────→  Per-user Storage    │
-│  (Express 5)             │              (memory + context   │
-│       │                  │               + sessions)        │
-│       ▼                  ▼                                  │
-│  Python API      ←── /study proxy ──→  PDF Extract          │
-│  (FastAPI)                              + OCR Clean         │
-│       │                                 + Study Plan        │
-│       └──────────────────────────────────────────────────── │
-│                          ▼                                  │
-│                    Ollama (local)                           │
-│                    mistral / any model                      │
-└─────────────────────────────────────────────────────────────┘
-```
+The entire system runs on your own hardware — no external API keys, no data sent to third-party servers.
 
 ---
 
-## Features
+## Key Features
 
 ### Chat Platform
-- **5 tutor modes** — Default, Deep Research, Code, Canvas, Flash — each with distinct system prompts, sampling configs, and output formats
-- **Streaming responses** via SSE (`POST /chat/stream`) with per-chunk heartbeat and upstream abort propagation
-- **Per-user persistent state** — profile memory, session context, and interaction history survive restarts
-- **Transactional state writes** — `userState.js` coordinates memory + context under a shared FIFO lock with snapshot-based rollback
+- **Multi-user AI tutoring platform** — isolated per-user state, sessions, and memory
+- **JWT authentication & session management** — bcrypt hashing, login rate limiting, timing-safe comparison
+- **Persistent user memory** — profile fields (`name`, `level`, `style`) survive restarts and inform every response
+- **Context-aware conversations** — rolling summary layer keeps long-session coherence without unbounded token growth
+- **Local LLM execution via Ollama** — Mistral, LLaMA 3, Gemma, or any compatible model; zero cloud dependency
+- **Streaming AI responses** — SSE with per-chunk heartbeat and upstream abort propagation
+- **Multi-mode tutoring system** — five distinct personas with separate system prompts and sampling configs
 - **Response relevance guard** — keyword overlap filter rejects off-topic responses before they reach the client
-- **Prompt injection hardening** — 14 regex patterns strip jailbreak attempts from user input; static system layer is never truncated
-- **JWT authentication** with bcrypt password hashing, login rate limiting (configurable window + attempt cap), and timing-safe comparison
+- **Prompt injection hardening** — 14 regex patterns strip jailbreak attempts; static system layer is never truncated
 - **Multiple named sessions** per user, auto-synced to disk every 10 s, flushed on graceful shutdown
 
 ### Study Planner
-- **PDF syllabus upload** → page-by-page LLM extraction → OCR cleaning → structured topic tree
-- **PageWiseAnalyzer** — async parallel processing with concurrency control, per-topic schema: `name · difficulty · importance · exam_frequency · estimated_hours · subtopics · confidence`
-- **WeightedScheduler** — allocates study hours per topic using `difficulty×0.5 + length×0.3 + importance×0.2`, with +25% boost for weak subjects and −12% cut for strong ones
-- **LLM plan generator** — builds a day-by-day schedule with revision strategy and optimization notes
-- **Async job system** — non-blocking `POST /plan` returns a `job_id`; poll `GET /plan/{job_id}` for progress and result
+- **PDF syllabus analysis** — page-by-page extraction, OCR deduplication, structured topic tree output
+- **Automated study plan generation** — difficulty-weighted scheduling with weak/strong subject modifiers
+- **Async study planning jobs** — non-blocking `POST /plan` + `GET /plan/{job_id}` polling
 - **SSE streaming** — `POST /plan/stream` pushes progress events to the browser in real time
 - **Export formats** — JSON, Markdown, CSV from the analyzer
 
 ### Infrastructure
-- Per-model circuit breakers (CLOSED → OPEN → HALF_OPEN) with race-safe probe gating
-- Split connect/read timeouts — 10 s connect, 180 s generation, per-chunk silence timer
-- Stream → non-stream fallback on Ollama version mismatch or mid-stream abort
-- Atomic file writes (temp-file + rename) across all persistence layers
-- Schema versioning with automatic migration on load
-- Graceful SIGTERM/SIGINT shutdown — flushes all in-memory sessions before closing connections
+- **Circuit breaker per model** — CLOSED → OPEN → HALF_OPEN with race-safe probe gating
+- **Split connect/read timeouts** — 10 s connect, 180 s generation, per-chunk silence timer
+- **Stream → non-stream fallback** on Ollama version mismatch or mid-stream abort
+- **Atomic file writes** (temp-file + rename) across all persistence layers
+- **Schema versioning** with automatic migration on load
+- **Graceful SIGTERM/SIGINT shutdown** — flushes all in-memory sessions before closing connections
+
+---
+
+## Architecture
+
+```
+Student
+    │
+    ▼
+┌────────────────────────────────────────┐
+│          Blix Chat Platform            │
+│                                        │
+│  ┌──────────────┐  ┌─────────────────┐ │
+│  │ JWT Auth     │  │ Session Manager │ │
+│  └──────────────┘  └─────────────────┘ │
+│  ┌──────────────┐  ┌─────────────────┐ │
+│  │ Memory Layer │  │ Context Layer   │ │
+│  │ (profile +   │  │ (rolling conv.  │ │
+│  │  interests)  │  │  summary)       │ │
+│  └──────────────┘  └─────────────────┘ │
+│  ┌──────────────┐                      │
+│  │ Prompt Engine│  ← 5 tutor modes     │
+│  └──────────────┘                      │
+└──────────────────┬─────────────────────┘
+                   │
+                   ▼
+          ┌─────────────────┐
+          │  Local LLM      │
+          │  (Ollama)       │
+          │  mistral / any  │
+          └────────┬────────┘
+                   │
+                   ▼
+┌──────────────────────────────────────────┐
+│         Study Planner Service            │
+│                                          │
+│  ┌──────────────┐  ┌───────────────────┐ │
+│  │ PDF Extract  │  │  OCR Cleaning     │ │
+│  │ (PyMuPDF)    │  │  (adv_cleaner)    │ │
+│  └──────────────┘  └───────────────────┘ │
+│  ┌──────────────┐  ┌───────────────────┐ │
+│  │ Topic        │  │  Weighted         │ │
+│  │ Analyzer     │  │  Scheduler        │ │
+│  └──────────────┘  └───────────────────┘ │
+│  ┌──────────────┐                        │
+│  │ Plan         │  → JSON / SSE / CSV    │
+│  │ Generator    │                        │
+│  └──────────────┘                        │
+└──────────────────────────────────────────┘
+```
+
+---
+
+## Tutor Modes
+
+Five distinct personas — auto-detected from message content or set explicitly via the `mode` field.
+
+| Mode | Trigger | Behavior |
+|---|---|---|
+| **Default** | General questions | 150–300 word balanced explanations with analogies and examples |
+| **Research** | Deep analysis requests | 400–800 word academic analysis — theory, tradeoffs, complexity, real-world use |
+| **Code** | Code generation / debugging | Working code with inline comments, minimal prose; bug-first on debug tasks |
+| **Canvas** | Visual / diagram requests | ASCII diagrams using box-drawing characters, trees, flowcharts, then explanation |
+| **Flash** | Quick factual queries | 1–5 line answers, maximum density, zero filler |
+
+---
+
+## Study Planner Pipeline
+
+```
+input.pdf
+    │
+    ▼
+PDF Extractor (PyMuPDF)
+    │   page_num · text · word_count · reading_time_min
+    ▼
+AdvancedDataCleaner
+    │   OCR dedup · broken word fix · camelCase split
+    │   unicode strip · header frequency removal
+    ▼
+PageWiseAnalyzer  (async, concurrency=3)
+    │   per-topic: name · difficulty · importance
+    │             exam_frequency · estimated_hours
+    │             subtopics · LLM confidence
+    ▼
+WeightedScheduler
+    │   proportional hour allocation + weak/strong modifiers
+    │   time_weight = difficulty×0.5 + subtopic_count×0.3 + importance×0.2
+    │   weak_subjects → +25%  |  strong_subjects → −12%
+    ▼
+PlanGenerator (LLM)
+    │   high_level_plan · detailed_schedule
+    │   revision_strategy · optimization_notes
+    ▼
+study_plan.json / SSE stream / CSV / Markdown
+```
+
+---
+
+## Storage Layer
+
+Blix.ai uses **file-based persistence with atomic writes** (temp-file + rename). A crash mid-write never produces a corrupt file. Concurrent writes for the same user are serialized through a per-user FIFO lock.
+
+Each user has three JSON files under `data/users/<idx>/`:
+
+| File | Contents |
+|---|---|
+| `memory.json` | Profile (`name`, `level`, `style`), topic interests, interaction count |
+| `context.json` | Rolling summary of recent conversations |
+| `Session<n>.json` | Turn history for each named session |
+
+`userState.js` coordinates writes to both `memory.json` and `context.json` under a single composite lock (`state:<userId>`). Write order is context-first (recoverable), memory-second (critical). If the memory write fails, the service restores the pre-update snapshot before re-throwing.
+
+**Future migration targets:**
+- PostgreSQL (user records + sessions)
+- Redis (job store, session cache)
+- Vector database (embedding-based context retrieval)
 
 ---
 
@@ -92,8 +188,8 @@ blix/
 │   └── chat.js                 # POST /chat, /chat/stream · GET /chat/history
 │
 ├── services/
-│   ├── prompt.js               # Multi-mode prompt engine (v6)
-│   ├── ollama.js               # Ollama client with circuit breaker (v6)
+│   ├── prompt.js               # Multi-mode prompt engine
+│   ├── ollama.js               # Ollama client with circuit breaker
 │   ├── memory.js               # Per-user profile persistence
 │   ├── context.js              # Per-user session context
 │   ├── auth.js                 # JWT, bcrypt, rate limiter
@@ -154,7 +250,6 @@ npm install
 
 ```bash
 pip install fastapi uvicorn aiohttp requests pydantic
-# For PDF extraction:
 pip install pymupdf          # PyMuPDF — primary extractor
 pip install pdfplumber       # fallback for complex layouts
 ```
@@ -203,11 +298,8 @@ ollama serve
 ### Start the Node.js backend
 
 ```bash
-# Development (auto-reload)
-npm run dev
-
-# Production
-npm start
+npm run dev   # development (auto-reload)
+npm start     # production
 ```
 
 Server starts on `http://localhost:3000` (or `PORT` from `.env`).
@@ -263,7 +355,7 @@ OLLAMA_BREAKER_RESET_MS=15000  # ms before OPEN → HALF_OPEN probe
 
 ## API Reference
 
-### Auth  (`/auth`)
+### Auth (`/auth`)
 
 | Method | Endpoint | Auth | Body | Description |
 |---|---|---|---|---|
@@ -274,9 +366,7 @@ OLLAMA_BREAKER_RESET_MS=15000  # ms before OPEN → HALF_OPEN probe
 **Username rules:** 2–32 characters, letters / digits / `_` `.` `-`  
 **Password rules:** minimum 6 characters
 
----
-
-### Chat  (`/chat`)
+### Chat (`/chat`)
 
 All endpoints require `Authorization: Bearer <token>`.
 
@@ -306,7 +396,7 @@ Response:
 
 #### `POST /chat/stream` — SSE Streaming
 
-Same request body as above. Returns `text/event-stream`.
+Same request body as above. Returns `text/event-stream`:
 
 ```
 data: {"chunk": "Merge sort is a"}
@@ -325,9 +415,7 @@ Returns the current session's turn history.
 
 Clears the current session history (keeps the session file).
 
----
-
-### Study Planner  (`localhost:8000`)
+### Study Planner (`localhost:8000`)
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -367,69 +455,19 @@ Subjects listed in `weak_subjects` receive +25% time; `strong_subjects` receive 
 
 ---
 
-## Tutor Modes
-
-| Mode | Trigger | Behavior |
-|---|---|---|
-| **Default** | General questions | 150–300 word balanced explanations with analogies and examples |
-| **Research** | Deep analysis requests | 400–800 word academic analysis — theory, tradeoffs, complexity, real-world use |
-| **Code** | Code generation / debugging | Working code with inline comments, minimal prose, bug-first on debug tasks |
-| **Canvas** | Visual / diagram requests | ASCII diagrams using box-drawing characters, trees, flowcharts, then explanation |
-| **Flash** | Quick factual queries | 1–5 line answers, maximum density, zero filler |
-
-Modes are auto-detected from message content, or set explicitly via the `mode` field.
-
----
-
-## Study Planner Pipeline
-
-```
-input.pdf
-    │
-    ▼
-PDF Extractor (PyMuPDF)
-    │   page_num · text · word_count · reading_time_min
-    ▼
-AdvancedDataCleaner
-    │   OCR dedup · broken word fix · camelCase split
-    │   unicode strip · header frequency removal
-    ▼
-PageWiseAnalyzer  (async, concurrency=3)
-    │   per-topic: name · difficulty · importance
-    │             exam_frequency · estimated_hours
-    │             subtopics · LLM confidence
-    ▼
-WeightedScheduler
-    │   proportional hour allocation + weak/strong modifiers
-    ▼
-PlanGenerator (LLM)
-    │   high_level_plan · detailed_schedule
-    │   revision_strategy · optimization_notes
-    ▼
-study_plan.json / SSE stream / JSON API
-```
-
----
-
 ## Architecture Notes
-
-### State Persistence
-
-Each user has three JSON files under `data/users/<idx>/`:
-
-- `memory.json` — profile (`name`, `level`, `style`), topic interests, interaction count
-- `context.json` — rolling summary of recent conversations
-- `Session<n>.json` — turn history for each named session
-
-Writes use a temp-file + rename pattern so a crash mid-write never produces a corrupt file. Concurrent writes for the same user are serialized through a per-user FIFO lock.
-
-### Transactional Safety
-
-`userState.js` coordinates updates to both `memory.json` and `context.json` under a single composite lock (`state:<userId>`). Write order is context-first (recoverable), memory-second (critical). If the memory write fails, the service attempts to restore the pre-update memory snapshot before re-throwing.
 
 ### Circuit Breaker
 
-`ollama.js` maintains an isolated circuit breaker per model. After `OLLAMA_BREAKER_FAILURES` consecutive failures, the breaker opens and all requests fast-fail for `OLLAMA_BREAKER_RESET_MS`. After that interval it enters HALF_OPEN and allows a single probe; only one concurrent probe is permitted (race-safe `probeInFlight` flag). On probe success, the breaker resets to CLOSED.
+`ollama.js` maintains an isolated circuit breaker per model. After `OLLAMA_BREAKER_FAILURES` consecutive failures, the breaker opens and all requests fast-fail for `OLLAMA_BREAKER_RESET_MS`. After that interval it enters HALF_OPEN and allows a single probe — only one concurrent probe is permitted (race-safe `probeInFlight` flag). On probe success the breaker resets to CLOSED.
+
+### Prompt Security
+
+User input passes through 14 regex patterns before reaching the LLM. The static system layer is injected independently and is never truncated or overridden by user content regardless of message length.
+
+### Transactional State Writes
+
+All user state changes go through `userState.js` under a composite lock (`state:<userId>`). Write order is context-first (recoverable) then memory (critical). If the memory write fails, the pre-update memory snapshot is restored before re-throwing.
 
 ---
 
@@ -461,22 +499,29 @@ curl http://localhost:8000/health
 
 ## Known Limitations
 
-- **Memory confidence** — user profile fields (name, level) are extracted and persisted on first match without a confidence threshold. A misheard name in early conversation can persist. A confidence gate (`≥ 0.8` after N confirmations) is planned.
-- **Study planner auth** — the FastAPI server currently has no authentication. Recommended deployment: bind to `127.0.0.1` only and proxy through the Node.js backend.
-- **In-memory job store** — study plan jobs are lost on Python server restart. For production, swap `JOBS: dict` for Redis (the interface is isolated in `api_server.py`).
-- **No PDF upload endpoint** — the `/analyze` and `/plan` endpoints accept pre-extracted text. A `POST /upload` endpoint that runs PyMuPDF → cleaner → analyzer inline is on the roadmap.
+- **Memory confidence** — profile fields are persisted on first match without a confidence threshold. A misheard name in early conversation can persist. A confidence gate (`≥ 0.8` after N confirmations) is planned.
+- **Study planner auth** — the FastAPI server has no authentication. Recommended deployment: bind to `127.0.0.1` only and proxy through the Node.js backend.
+- **In-memory job store** — study plan jobs are lost on Python server restart. The `JOBS: dict` interface in `api_server.py` is isolated for a Redis swap.
+- **No PDF upload endpoint** — `/analyze` and `/plan` accept pre-extracted text. A `POST /upload` endpoint is on the roadmap.
 
 ---
 
-## Roadmap
+## Research Roadmap
+
+Future work focuses on applying research-grade techniques to the learning domain:
 
 - [ ] `POST /upload` — PDF → extract → clean → plan in a single API call
 - [ ] Memory confidence system with `name_conf` threshold
 - [ ] Per-user rate limiting on `/chat` endpoints
 - [ ] Redis job store for the study planner
-- [ ] Embedding-based context relevance (cosine similarity instead of keyword overlap)
-- [ ] Admin dashboard for user management
+- [ ] **Adaptive Learning Agents** — dynamic difficulty adjustment based on interaction history
+- [ ] **Long-Term Educational Memory** — spaced repetition signals integrated into the memory layer
+- [ ] **Retrieval-Augmented Learning** — embedding-based context retrieval (cosine similarity) replacing keyword overlap
+- [ ] **Knowledge Graph Construction** — topic relationship modeling from syllabus structure
+- [ ] **Personalized Assessment Generation** — quiz and problem generation tuned to user weak areas
+- [ ] **Mastery-Aware Study Planning** — scheduler that re-weights topics based on self-assessed confidence over time
 - [ ] Docker Compose setup (Node + Python + Ollama)
+- [ ] Admin dashboard for user management
 - [ ] Mobile-responsive chat UI improvements
 
 ---
