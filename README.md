@@ -145,8 +145,8 @@ blix/
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/your-username/blix.git
-cd blix
+git clone https://github.com/SAYANDUTTA8442/blix.ai.git
+cd blix.ai
 npm install
 ```
 
