@@ -1,550 +1,486 @@
 <div align="center">
 
-# 🚀 Blix.ai
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:0d1117,40:0f172a,80:1e1b4b,100:4f46e5&height=140&section=header&text=Blix&fontSize=56&fontColor=ffffff&fontAlignY=58&fontAlign=50&desc=Cognitive%20Agent%20Architecture%20%C2%B7%20Memory%20%C2%B7%20Reasoning%20%C2%B7%20Recovery&descSize=14&descAlignY=80&descColor=a5b4fc&animation=fadeIn" width="100%"/>
 
-**Adaptive AI Tutor & Study Planner**
+</div>
 
-*Multi-user AI tutoring platform · PDF syllabus analyzer · LLM-powered study plans · Local-first*
+<div align="center">
 
-[![Node.js](https://img.shields.io/badge/Node.js-v18%2B-339933?logo=node.js&logoColor=white)](https://nodejs.org)
-[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
-[![Ollama](https://img.shields.io/badge/Ollama-local%20LLM-black)](https://ollama.com)
-[![Express](https://img.shields.io/badge/Express-5.x-000000?logo=express)](https://expressjs.com)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![License](https://img.shields.io/badge/license-ISC-blue)](#license)
+[![License: MIT](https://img.shields.io/badge/License-MIT-a5b4fc?style=flat-square)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10+-4f46e5?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![PyTorch](https://img.shields.io/badge/PyTorch-ee4c2c?style=flat-square&logo=pytorch&logoColor=white)](https://pytorch.org)
+[![Ollama](https://img.shields.io/badge/Ollama-Local%20LLM-000000?style=flat-square&logo=ollama&logoColor=white)](https://ollama.com)
+[![FAISS](https://img.shields.io/badge/FAISS-Vector%20Search-0467df?style=flat-square&logo=meta&logoColor=white)](https://github.com/facebookresearch/faiss)
+[![Status](https://img.shields.io/badge/Status-Active%20Development-22c55e?style=flat-square)]()
+[![Version](https://img.shields.io/badge/Version-v0.3.1-a5b4fc?style=flat-square)]()
+[![Tests](https://img.shields.io/badge/Tests-329%20documented-22c55e?style=flat-square)]()
+
+<br/>
+
+*Built by [Sayan Dutta](https://sayandutta.netlify.app) · AI Researcher · IIT Patna*
 
 </div>
 
 ---
 
-## Overview
-
-Blix.ai is a full-stack AI learning platform built on locally-hosted LLMs via [Ollama](https://ollama.com). It combines a production-grade multi-user AI tutoring backend with an automated study planner that reads your exam syllabus PDF and produces a weighted, day-by-day revision schedule.
-
-The entire system runs on your own hardware — no external API keys, no data sent to third-party servers.
+> **Blix is not a chatbot wrapper.**
+> It is a ground-up cognitive agent architecture that explores what it takes to build an AI system that **reasons, remembers, and recovers from failure** in a principled way — combining persistent hierarchical memory, knowledge graphs, truth maintenance, belief tracking, autonomous replanning, and workspace-based reasoning coordination, all running locally on consumer hardware.
 
 ---
 
-## Key Features
+## Table of Contents
 
-### Chat Platform
-- **Multi-user AI tutoring platform** — isolated per-user state, sessions, and memory
-- **JWT authentication & session management** — bcrypt hashing, login rate limiting, timing-safe comparison
-- **Persistent user memory** — profile fields (`name`, `level`, `style`) survive restarts and inform every response
-- **Context-aware conversations** — rolling summary layer keeps long-session coherence without unbounded token growth
-- **Local LLM execution via Ollama** — Mistral, LLaMA 3, Gemma, or any compatible model; zero cloud dependency
-- **Streaming AI responses** — SSE with per-chunk heartbeat and upstream abort propagation
-- **Multi-mode tutoring system** — five distinct personas with separate system prompts and sampling configs
-- **Response relevance guard** — keyword overlap filter rejects off-topic responses before they reach the client
-- **Prompt injection hardening** — 14 regex patterns strip jailbreak attempts; static system layer is never truncated
-- **Multiple named sessions** per user, auto-synced to disk every 10 s, flushed on graceful shutdown
-
-### Study Planner
-- **PDF syllabus analysis** — page-by-page extraction, OCR deduplication, structured topic tree output
-- **Automated study plan generation** — difficulty-weighted scheduling with weak/strong subject modifiers
-- **Async study planning jobs** — non-blocking `POST /plan` + `GET /plan/{job_id}` polling
-- **SSE streaming** — `POST /plan/stream` pushes progress events to the browser in real time
-- **Export formats** — JSON, Markdown, CSV from the analyzer
-
-### Infrastructure
-- **Circuit breaker per model** — CLOSED → OPEN → HALF_OPEN with race-safe probe gating
-- **Split connect/read timeouts** — 10 s connect, 180 s generation, per-chunk silence timer
-- **Stream → non-stream fallback** on Ollama version mismatch or mid-stream abort
-- **Atomic file writes** (temp-file + rename) across all persistence layers
-- **Schema versioning** with automatic migration on load
-- **Graceful SIGTERM/SIGINT shutdown** — flushes all in-memory sessions before closing connections
+- [Why Blix Exists](#-why-blix-exists)
+- [What Makes Blix Different](#-what-makes-blix-different)
+- [Architecture](#-architecture)
+  - [Memory System](#-memory-system)
+  - [Knowledge Graph](#-knowledge-graph)
+  - [Truth Maintenance Engine](#-truth-maintenance-engine)
+  - [Workspace Coordination](#-workspace-coordination)
+  - [Failure Memory & Replanning](#-failure-memory--replanning)
+- [StateBench](#-statebench)
+- [Tech Stack](#-tech-stack)
+- [Project Structure](#-project-structure)
+- [Getting Started](#-getting-started)
+- [Roadmap](#-roadmap)
+- [Research Context](#-research-context)
+- [Contributing](#-contributing)
+- [Author](#-author)
 
 ---
 
-## Architecture
+## 🔍 Why Blix Exists
 
-<p align="center">
-  <img src="./Architechture.png"
-       alt="Blix.ai Architecture"
-       width="100%">
-</p>
+Most LLM applications today are stateless wrappers: they call an API, format a prompt, and return a response. Between sessions, they remember nothing. Within sessions, they accumulate a context window until it overflows. They have no model of what they believe, no ability to detect when a belief is wrong, and no mechanism to learn from failure.
 
-<p align="center">
-  <em>Figure 1: High-level architecture of Blix.ai.</em>
-</p>
+**The problems Blix is built to solve:**
 
-```
-Student
-    │
-    ▼
-┌────────────────────────────────────────┐
-│          Blix Chat Platform            │
-│                                        │
-│  ┌──────────────┐  ┌─────────────────┐ │
-│  │ JWT Auth     │  │ Session Manager │ │
-│  └──────────────┘  └─────────────────┘ │
-│  ┌──────────────┐  ┌─────────────────┐ │
-│  │ Memory Layer │  │ Context Layer   │ │
-│  │ (profile +   │  │ (rolling conv.  │ │
-│  │  interests)  │  │  summary)       │ │
-│  └──────────────┘  └─────────────────┘ │
-│  ┌──────────────┐                      │
-│  │ Prompt Engine│  ← 5 tutor modes     │
-│  └──────────────┘                      │
-└──────────────────┬─────────────────────┘
-                   │
-                   ▼
-          ┌─────────────────┐
-          │  Local LLM      │
-          │  (Ollama)       │
-          │  mistral / any  │
-          └────────┬────────┘
-                   │
-                   ▼
-┌──────────────────────────────────────────┐
-│         Study Planner Service            │
-│                                          │
-│  ┌──────────────┐  ┌───────────────────┐ │
-│  │ PDF Extract  │  │  OCR Cleaning     │ │
-│  │ (PyMuPDF)    │  │  (adv_cleaner)    │ │
-│  └──────────────┘  └───────────────────┘ │
-│  ┌──────────────┐  ┌───────────────────┐ │
-│  │ Topic        │  │  Weighted         │ │
-│  │ Analyzer     │  │  Scheduler        │ │
-│  └──────────────┘  └───────────────────┘ │
-│  ┌──────────────┐                        │
-│  │ Plan         │  → JSON / SSE / CSV    │
-│  │ Generator    │                        │
-│  └──────────────┘                        │
-└──────────────────────────────────────────┘
-```
-
----
-
-## Tutor Modes
-
-Five distinct personas — auto-detected from message content or set explicitly via the `mode` field.
-
-| Mode | Trigger | Behavior |
+| Problem | What most systems do | What Blix does |
 |---|---|---|
-| **Default** | General questions | 150–300 word balanced explanations with analogies and examples |
-| **Research** | Deep analysis requests | 400–800 word academic analysis — theory, tradeoffs, complexity, real-world use |
-| **Code** | Code generation / debugging | Working code with inline comments, minimal prose; bug-first on debug tasks |
-| **Canvas** | Visual / diagram requests | ASCII diagrams using box-drawing characters, trees, flowcharts, then explanation |
-| **Flash** | Quick factual queries | 1–5 line answers, maximum density, zero filler |
+| Context loss between sessions | Forget everything | Persistent hierarchical memory with temporal retrieval |
+| Contradictory knowledge | Accept any new claim silently | Truth Maintenance Engine detects and repairs inconsistencies |
+| No model of belief | No explicit belief state | Belief tracking with confidence estimation |
+| Static memory | Flat key-value or vector store | Knowledge graph with semantic traversal |
+| Failure is unrecoverable | Crash or hallucinate | Failure memory + principled replanning |
+| Cloud dependency | API calls required | Fully local via Ollama + FAISS |
+| Monolithic design | Hard to extend or ablate | Modular — every component is independently testable |
 
 ---
 
-## Study Planner Pipeline
+## ✦ What Makes Blix Different
 
 ```
-input.pdf
-    │
-    ▼
-PDF Extractor (PyMuPDF)
-    │   page_num · text · word_count · reading_time_min
-    ▼
-AdvancedDataCleaner
-    │   OCR dedup · broken word fix · camelCase split
-    │   unicode strip · header frequency removal
-    ▼
-PageWiseAnalyzer  (async, concurrency=3)
-    │   per-topic: name · difficulty · importance
-    │             exam_frequency · estimated_hours
-    │             subtopics · LLM confidence
-    ▼
-WeightedScheduler
-    │   proportional hour allocation + weak/strong modifiers
-    │   time_weight = difficulty×0.5 + subtopic_count×0.3 + importance×0.2
-    │   weak_subjects → +25%  |  strong_subjects → −12%
-    ▼
-PlanGenerator (LLM)
-    │   high_level_plan · detailed_schedule
-    │   revision_strategy · optimization_notes
-    ▼
-study_plan.json / SSE stream / CSV / Markdown
+Most AI assistants:    User → Prompt → LLM → Response
+                                  (stateless, amnesiac)
+
+Blix:                  User
+                         │
+                    Conversation Manager
+                         │
+                  ┌──────┴──────────────────────────────┐
+                  │                                      │
+           Prompt Builder                    Memory Retrieval Layer
+                  │                          ┌────────────┼────────────┐
+                  │                   Episodic Mem   Semantic Mem   Belief Store
+                  │                          └────────────┼────────────┘
+                  │                                       │
+                  │                              Knowledge Graph
+                  │                                       │
+                  │                          Truth Maintenance Engine
+                  │                                       │
+                  └──────────────┬────────────────────────┘
+                                 │
+                            Local LLM (Ollama)
+                                 │
+                          Workspace Coordinator
+                         ┌───────┼───────┐
+                    Planner  Verifier  Evaluator
+                                 │
+                          Response + Memory Update
+                                 │
+                         Failure Memory (if needed)
+                                 │
+                              Replan
 ```
 
 ---
 
-## Storage Layer
+## 🏗️ Architecture
 
-Blix.ai uses **file-based persistence with atomic writes** (temp-file + rename). A crash mid-write never produces a corrupt file. Concurrent writes for the same user are serialized through a per-user FIFO lock.
+Blix is organized into **six cooperating subsystems**. Each is independently testable and can be ablated, replaced, or extended without breaking the others.
 
-Each user has three JSON files under `data/users/<idx>/`:
+---
 
-| File | Contents |
+### 🧠 Memory System
+
+The foundation of Blix. Rather than a flat vector store, Blix implements a **hierarchical memory architecture** with three distinct layers:
+
+```
+┌─────────────────────────────────────────────────────┐
+│                   MEMORY HIERARCHY                   │
+├─────────────────────────────────────────────────────┤
+│  Working Memory    │ Active context window           │
+│                    │ Current task state              │
+│                    │ Attention-weighted retrieval    │
+├─────────────────────────────────────────────────────┤
+│  Episodic Memory   │ Timestamped conversation turns  │
+│                    │ Temporal decay modeling         │
+│                    │ Confidence-weighted retrieval   │
+│                    │ Session-boundary awareness      │
+├─────────────────────────────────────────────────────┤
+│  Semantic Memory   │ FAISS vector index              │
+│                    │ Sentence-Transformer embeddings │
+│                    │ Semantic similarity search      │
+│                    │ Cross-session concept linkage   │
+└─────────────────────────────────────────────────────┘
+```
+
+**Key properties:**
+- **Temporal retrieval** — recency and relevance are weighted independently, not collapsed
+- **Confidence estimation** — each stored memory carries a confidence score that decays and can be updated
+- **Decay modeling** — older memories fade unless reinforced by repeated access or explicit pinning
+- **Cross-session persistence** — memories survive process restarts via SQLite-backed storage
+
+---
+
+### 🕸️ Knowledge Graph
+
+Blix maintains an explicit **entity-relation knowledge graph** alongside the vector memory layer. Where FAISS retrieves by semantic similarity, the knowledge graph retrieves by structured relationship traversal.
+
+```
+     [Sayan] ──authored──► [ECOT-ERG paper]
+        │                        │
+     studies-at              submitted-to
+        │                        │
+    [IIT Patna]            [EMNLP 2026]
+        │
+     member-of
+        │
+   [Google GSA]
+```
+
+- Entities and relations are extracted and stored during ingestion
+- Graph traversal enables multi-hop reasoning ("who supervised the paper that Sayan co-authored?")
+- Graph state is reconciled with the Truth Maintenance Engine on every write
+
+---
+
+### ⚖️ Truth Maintenance Engine (TME)
+
+The TME is the component that makes Blix's knowledge *trustworthy*. Most AI systems accept any new claim without checking it against what they already believe. Blix does not.
+
+```
+New Claim Arrives
+       │
+       ▼
+Consistency Check against Belief Store
+       │
+   ┌───┴────────────────┐
+   │                    │
+Consistent          Contradiction Detected
+   │                    │
+Store & propagate   ┌───┴───────────────┐
+                    │                   │
+              Resolve by           Flag for
+              confidence            user review
+                    │
+              Update affected
+              beliefs downstream
+```
+
+**Capabilities:**
+- Detects direct contradictions in stored beliefs
+- Propagates belief updates downstream through dependent beliefs
+- Resolves conflicts by confidence score or recency heuristic
+- Maintains a full audit trail of belief revisions
+
+---
+
+### 🖥️ Workspace Coordination
+
+The Workspace is Blix's **executive layer** — the subsystem that coordinates planning, verification, and evaluation before committing a response.
+
+```
+Task arrives
+     │
+     ▼
+┌─── Planner ──────────────────────────────┐
+│  Decomposes task into subtasks            │
+│  Assigns retrieval and reasoning steps    │
+└───────────────────┬──────────────────────┘
+                    │
+                    ▼
+┌─── Verifier ─────────────────────────────┐
+│  Checks retrieved evidence               │
+│  Validates logical consistency           │
+│  Flags low-confidence steps              │
+└───────────────────┬──────────────────────┘
+                    │
+                    ▼
+┌─── Evaluator ────────────────────────────┐
+│  Scores response quality                 │
+│  Compares against task specification     │
+│  Decides: commit response or replan      │
+└───────────────────┬──────────────────────┘
+                    │
+             Commit / Replan
+```
+
+---
+
+### 🔁 Failure Memory & Replanning
+
+When a task fails — due to retrieval failure, contradiction, low evaluator score, or LLM refusal — Blix does not simply return an error. It **stores the failure** and uses it to inform future attempts.
+
+```
+Task fails
+     │
+     ▼
+Failure logged to Failure Memory
+  · Task description
+  · Failure mode classification
+  · State at time of failure
+  · Attempted strategies
+     │
+     ▼
+Replanning Engine
+  · Consults Failure Memory for similar past failures
+  · Selects alternative strategy
+  · Adjusts confidence thresholds
+     │
+     ▼
+Retry with modified plan
+```
+
+This is the component closest to **continual learning without gradient updates** — Blix improves its planning behavior from experience without retraining.
+
+---
+
+## 📐 StateBench
+
+**StateBench** is Blix's internal benchmark suite for evaluating the core cognitive subsystems independently.
+
+| Benchmark | What it evaluates |
 |---|---|
-| `memory.json` | Profile (`name`, `level`, `style`), topic interests, interaction count |
-| `context.json` | Rolling summary of recent conversations |
-| `Session<n>.json` | Turn history for each named session |
+| `state_tracking` | Does Blix correctly maintain and update belief state across a multi-turn sequence? |
+| `contradiction_detection` | Does the TME catch planted contradictions in the knowledge base? |
+| `retrieval_fidelity` | Does memory retrieval surface the most contextually relevant items? |
+| `replan_success_rate` | When the first plan fails, does replanning recover to a correct response? |
+| `temporal_decay` | Does memory correctly down-weight stale information over time? |
+| `confidence_calibration` | Are confidence scores meaningful predictors of response accuracy? |
 
-`userState.js` coordinates writes to both `memory.json` and `context.json` under a single composite lock (`state:<userId>`). Write order is context-first (recoverable), memory-second (critical). If the memory write fails, the service restores the pre-update snapshot before re-throwing.
-
-**Future migration targets:**
-- PostgreSQL (user records + sessions)
-- Redis (job store, session cache)
-- Vector database (embedding-based context retrieval)
+All 329 tests are documented in the **Minor Project I academic report (Blix v0.3.1, 41 pages)**.
 
 ---
 
-## Repository Structure
+## 🛠️ Tech Stack
 
-```
-blix/
-│
-├── server.js                   # Express entry point
-├── package.json
-├── .env                        # ← copy from .env.example, add JWT_SECRET
-├── Modelfile                   # Custom Ollama model definition for Blix
-│
-├── routes/
-│   ├── auth.js                 # POST /auth/register, /auth/login, GET /auth/me
-│   └── chat.js                 # POST /chat, /chat/stream · GET /chat/history
-│
-├── services/
-│   ├── prompt.js               # Multi-mode prompt engine
-│   ├── ollama.js               # Ollama client with circuit breaker
-│   ├── memory.js               # Per-user profile persistence
-│   ├── context.js              # Per-user session context
-│   ├── auth.js                 # JWT, bcrypt, rate limiter
-│   ├── userState.js            # Transactional memory + context updates
-│   └── utils/
-│       ├── lock.js             # FIFO async lock (shared)
-│       ├── atomicWrite.js      # Temp-file atomic writes
-│       ├── contextAdapter.js   # context → {role,content}[] adapter
-│       ├── migrate.js          # Schema migration
-│       └── user.js             # userId sanitization, path helpers
-│
-├── public/
-│   ├── index.html              # Landing page
-│   └── chat/
-│       ├── index.html          # Main chat UI
-│       └── auth.html           # Login / register
-│
-├── data/                       # Runtime data (git-ignored in production)
-│   ├── users.json
-│   └── users/<idx>/
-│       ├── memory.json
-│       ├── context.json
-│       └── Session<n>.json
-│
-└── study/                      # Python study planner service
-    ├── api_server.py           # FastAPI REST + SSE server
-    ├── OllamaLLM.py            # Async Ollama client
-    ├── PageWiseAnalyzer.py     # Async topic extractor
-    ├── StudyPlannerBackend.py  # Pipeline orchestrator
-    └── adv_data_cleaner.py     # OCR cleaning pipeline
-```
-
----
-
-## Prerequisites
-
-| Dependency | Version | Notes |
+| Layer | Technology | Role |
 |---|---|---|
-| Node.js | ≥ 18 | For `fetch` without polyfill |
-| npm | ≥ 9 | Bundled with Node |
-| Python | ≥ 3.10 | For study planner |
-| Ollama | latest | [ollama.com/download](https://ollama.com/download) |
-| mistral | — | Or any model — see [Configuration](#configuration) |
+| Language | Python 3.10+ | Core implementation |
+| Deep Learning | PyTorch | Model training and inference hooks |
+| LLM Runtime | Ollama | Local LLM inference (Llama, Mistral, Phi, Gemma) |
+| Transformers | Hugging Face Transformers | Model loading, tokenization, embeddings |
+| Vector Search | FAISS | Semantic memory retrieval |
+| Embeddings | Sentence Transformers | Semantic encoding for memory and graph |
+| Database | SQLite | Persistent memory, belief store, failure log |
+| Validation | Pydantic | Schema enforcement across all subsystems |
+| Document Parsing | PyMuPDF / pdfplumber | PDF and document ingestion pipeline |
+| Evaluation | Custom StateBench | Subsystem-level benchmarking |
+
+**Design constraints:**
+- ✅ Fully local — no cloud API calls required at runtime
+- ✅ Privacy-preserving — all data stays on device
+- ✅ Consumer hardware — designed to run on a standard laptop (8GB RAM minimum)
+- ✅ Modular — every subsystem has a clean interface and can be replaced independently
 
 ---
 
-## Installation
+## 📁 Project Structure
 
-### 1. Clone and install
+```
+blix.ai/
+├── core/
+│   ├── memory/
+│   │   ├── working_memory.py        # Active context management
+│   │   ├── episodic_memory.py       # Timestamped turn storage
+│   │   ├── semantic_memory.py       # FAISS vector index
+│   │   └── memory_manager.py        # Unified retrieval interface
+│   ├── knowledge/
+│   │   ├── knowledge_graph.py       # Entity-relation graph
+│   │   └── graph_traversal.py       # Multi-hop query engine
+│   ├── tme/
+│   │   ├── belief_store.py          # Belief state management
+│   │   ├── consistency_checker.py   # Contradiction detection
+│   │   └── belief_updater.py        # Downstream propagation
+│   ├── workspace/
+│   │   ├── planner.py               # Task decomposition
+│   │   ├── verifier.py              # Evidence validation
+│   │   └── evaluator.py             # Response scoring
+│   └── failure/
+│       ├── failure_memory.py        # Failure log and retrieval
+│       └── replanner.py             # Alternative strategy selection
+├── inference/
+│   ├── ollama_client.py             # Local LLM interface
+│   └── prompt_builder.py           # Context-aware prompt assembly
+├── ingestion/
+│   ├── pdf_pipeline.py              # Document ingestion
+│   └── ocr_fallback.py              # OCR for scanned documents
+├── conversation/
+│   ├── session_manager.py           # Multi-session handling
+│   └── history.py                   # Persistent conversation log
+├── evaluation/
+│   └── statebench/                  # 329-test benchmark suite
+├── config/
+│   └── settings.py                  # Pydantic-validated config
+├── tests/
+└── README.md
+```
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
 
 ```bash
+# Python 3.10+
+python --version
+
+# Ollama (for local LLM inference)
+# Install from https://ollama.com
+ollama pull llama3.2        # or mistral, phi3, gemma2
+```
+
+### Installation
+
+```bash
+# Clone the repository
 git clone https://github.com/SAYANDUTTA8442/blix.ai.git
 cd blix.ai
-npm install
+
+# Create virtual environment
+python -m venv venv
+source venv/bin/activate        # Linux/macOS
+# venv\Scripts\activate         # Windows
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-### 2. Python dependencies (study planner)
+### Quick Start
+
+```python
+from core.memory.memory_manager import MemoryManager
+from core.tme.belief_store import BeliefStore
+from core.workspace.planner import Planner
+from inference.ollama_client import OllamaClient
+from conversation.session_manager import SessionManager
+
+# Initialize subsystems
+memory = MemoryManager()
+beliefs = BeliefStore()
+llm = OllamaClient(model="llama3.2")
+planner = Planner(memory=memory, beliefs=beliefs, llm=llm)
+session = SessionManager(planner=planner)
+
+# Start a session
+response = session.chat("What do you remember about my last project?")
+print(response)
+```
+
+### Running StateBench
 
 ```bash
-pip install fastapi uvicorn aiohttp requests pydantic
-pip install pymupdf          # PyMuPDF — primary extractor
-pip install pdfplumber       # fallback for complex layouts
-```
+# Run the full benchmark suite
+python -m evaluation.statebench.run_all
 
-### 3. Pull the LLM
-
-```bash
-ollama pull mistral
-```
-
-Or build the custom Blix tutor persona:
-
-```bash
-ollama create blix -f Modelfile
-# Then set OLLAMA_MODEL=blix in .env
-```
-
-### 4. Configure environment
-
-```bash
-cp .env.example .env
-```
-
-Open `.env` and set at minimum:
-
-```env
-JWT_SECRET=your-random-256-bit-secret-here
-```
-
-Generate a strong secret:
-
-```bash
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+# Run a specific subsystem benchmark
+python -m evaluation.statebench.state_tracking
+python -m evaluation.statebench.contradiction_detection
 ```
 
 ---
 
-## Running
+## 🗺️ Roadmap
 
-### Start Ollama
+### v0.3 (Current)
+- [x] Hierarchical memory system (working / episodic / semantic)
+- [x] FAISS-backed semantic retrieval
+- [x] Knowledge graph with entity-relation storage
+- [x] Truth Maintenance Engine — contradiction detection and belief repair
+- [x] Workspace coordination (planner / verifier / evaluator)
+- [x] Failure memory and replanning
+- [x] Multi-session persistence (SQLite)
+- [x] PDF and document ingestion pipeline
+- [x] StateBench benchmark suite (329 tests)
+- [x] Local LLM inference via Ollama
 
-```bash
-ollama serve
-```
+### v0.4 (In Progress)
+- [ ] Graph-augmented RAG — joint vector + graph retrieval
+- [ ] Confidence-calibrated response generation
+- [ ] Continual belief update from user corrections
+- [ ] Improved temporal decay modeling
+- [ ] REST API layer (FastAPI)
+- [ ] Web UI (minimal, local)
 
-### Start the Node.js backend
-
-```bash
-npm run dev   # development (auto-reload)
-npm start     # production
-```
-
-Server starts on `http://localhost:3000` (or `PORT` from `.env`).
-
-### Start the Python study planner API
-
-```bash
-cd study
-uvicorn api_server:app --host 0.0.0.0 --port 8000 --reload
-```
-
-API docs available at `http://localhost:8000/docs`.
-
----
-
-## Configuration
-
-All settings are controlled via `.env`. Full reference:
-
-```env
-# ── Server ───────────────────────────────────────
-PORT=3000
-HOST=0.0.0.0
-NODE_ENV=development          # development | production
-
-# ── Auth ─────────────────────────────────────────
-JWT_SECRET=                   # REQUIRED — min 32 chars
-JWT_EXPIRES=30d
-LOGIN_MAX_ATTEMPTS=5          # lockout after N failed attempts
-LOGIN_WINDOW_MS=60000         # sliding window for attempt count
-
-# ── CORS ─────────────────────────────────────────
-ALLOWED_ORIGIN=http://localhost:3000   # production: your frontend URL
-
-# ── Session ──────────────────────────────────────
-SESSION_HISTORY_CAP=40        # max turn pairs kept in memory
-SESSION_SYNC_INTERVAL_MS=10000
-
-# ── Ollama ───────────────────────────────────────
-OLLAMA_URL=http://localhost:11434
-OLLAMA_MODEL=mistral           # or: blix, llama3, gemma3, etc.
-OLLAMA_FALLBACK_MODEL=         # optional secondary model
-OLLAMA_CONNECT_TIMEOUT=10000   # ms — TCP + first byte
-OLLAMA_TIMEOUT_MS=180000       # ms — full generation / chunk silence
-OLLAMA_RETRIES=2
-OLLAMA_HEARTBEAT_MS=15000      # SSE keepalive interval
-OLLAMA_MAX_CHARS=20000         # output cap per response
-OLLAMA_BREAKER_FAILURES=3      # failures before circuit opens
-OLLAMA_BREAKER_RESET_MS=15000  # ms before OPEN → HALF_OPEN probe
-```
+### v1.0 (Planned)
+- [ ] Multi-agent coordination primitives
+- [ ] Tool use and external action execution
+- [ ] Long-horizon planning with goal tracking
+- [ ] Published StateBench as standalone benchmark
+- [ ] Academic paper on the Blix architecture
 
 ---
 
-## API Reference
+## 📄 Research Context
 
-### Auth (`/auth`)
+Blix began as an independent project in **June 2024** — a year before the author entered IIT Patna. It is the longest-running and most architecturally ambitious project in this portfolio.
 
-| Method | Endpoint | Auth | Body | Description |
-|---|---|---|---|---|
-| `POST` | `/auth/register` | — | `{ username, password, fullName? }` | Create account |
-| `POST` | `/auth/login` | — | `{ username, password }` | Get JWT token |
-| `GET` | `/auth/me` | JWT | — | Current user info |
+A **323-page architecture document** has been produced covering the full design rationale, subsystem specifications, and theoretical grounding for every component. A **41-page Minor Project I academic report** (Blix v0.3.1) documents all 329 StateBench tests and their results.
 
-**Username rules:** 2–32 characters, letters / digits / `_` `.` `-`  
-**Password rules:** minimum 6 characters
+The architectural thinking in Blix directly informed the author's research internship at BITS Pilani (April–May 2026), where structured reasoning pipeline design — a core Blix concern — was applied to the ECOT-ERG empathetic dialogue framework, now under review at **EMNLP 2026**.
 
-### Chat (`/chat`)
-
-All endpoints require `Authorization: Bearer <token>`.
-
-#### `POST /chat` — Standard (non-streaming)
-
-```json
-{
-  "message": "Explain merge sort",
-  "mode": "research",
-  "sessionId": "Session1"
-}
-```
-
-`mode` values: `default` · `research` · `code` · `canvas` · `flash`  
-`sessionId` is optional — omit to auto-create a new session.
-
-Response:
-
-```json
-{
-  "response": "...",
-  "sessionId": "Session1",
-  "mode": "research",
-  "new": false
-}
-```
-
-#### `POST /chat/stream` — SSE Streaming
-
-Same request body as above. Returns `text/event-stream`:
-
-```
-data: {"chunk": "Merge sort is a"}
-data: {"chunk": " divide-and-conquer"}
-...
-data: {"done": true, "sessionId": "Session1"}
-```
-
-Pass `X-Session-Id: Session1` as a request header as an alternative to the body field.
-
-#### `GET /chat/history`
-
-Returns the current session's turn history.
-
-#### `DELETE /chat/history`
-
-Clears the current session history (keeps the session file).
-
-### Study Planner (`localhost:8000`)
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/health` | Server + Ollama status |
-| `GET` | `/models` | Available Ollama models |
-| `POST` | `/analyze` | Extract topics from raw syllabus text |
-| `POST` | `/plan/quick` | Generate study plan (synchronous) |
-| `POST` | `/plan` | Submit async background job |
-| `GET` | `/plan/{job_id}` | Poll job status and result |
-| `POST` | `/plan/stream` | SSE streaming plan generation |
-| `GET` | `/jobs` | List all tracked jobs |
-| `DELETE` | `/jobs/{job_id}` | Remove a completed job |
-
-#### Example: Generate a study plan
-
-```bash
-curl -X POST http://localhost:8000/plan/quick \
-  -H "Content-Type: application/json" \
-  -d '{
-    "syllabus_text": "Operating Systems: Process Management, Scheduling...",
-    "start_date": "2026-06-10",
-    "end_date": "2026-07-10",
-    "daily_hours": 5,
-    "weak_subjects": ["DBMS"],
-    "strong_subjects": ["Python"],
-    "exam_date": "2026-07-12"
-  }'
-```
-
-**Scheduling formula:**
-
-```
-time_weight = difficulty × 0.5 + subtopic_count × 0.3 + importance × 0.2
-```
-
-Subjects listed in `weak_subjects` receive +25% time; `strong_subjects` receive −12%.
+**Conceptual influences:** ACT-R cognitive architecture · Soar cognitive system · Truth Maintenance Systems (Doyle, 1979) · Retrieval-Augmented Generation · Chain-of-Thought reasoning · Direct Preference Optimization
 
 ---
 
-## Architecture Notes
+## 🤝 Contributing
 
-### Circuit Breaker
+Contributions, issues, and feature requests are welcome.
 
-`ollama.js` maintains an isolated circuit breaker per model. After `OLLAMA_BREAKER_FAILURES` consecutive failures, the breaker opens and all requests fast-fail for `OLLAMA_BREAKER_RESET_MS`. After that interval it enters HALF_OPEN and allows a single probe — only one concurrent probe is permitted (race-safe `probeInFlight` flag). On probe success the breaker resets to CLOSED.
+**Before contributing:**
+1. Open an issue describing the change you want to make
+2. Wait for discussion and approval before submitting a PR
+3. For major architectural changes, a design doc is expected
 
-### Prompt Security
-
-User input passes through 14 regex patterns before reaching the LLM. The static system layer is injected independently and is never truncated or overridden by user content regardless of message length.
-
-### Transactional State Writes
-
-All user state changes go through `userState.js` under a composite lock (`state:<userId>`). Write order is context-first (recoverable) then memory (critical). If the memory write fails, the pre-update memory snapshot is restored before re-throwing.
+**Good first issues:** documentation improvements, new StateBench test cases, alternative embedding model integrations, additional Ollama model configurations.
 
 ---
 
-## Development
+## 📜 License
 
-```bash
-# Watch mode
-npm run dev
-
-# Manually test a chat request
-curl -X POST http://localhost:3000/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"testuser","password":"testpass"}' \
-  | jq .token
-
-TOKEN="<paste token here>"
-
-curl -X POST http://localhost:3000/chat \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"message":"What is a B-tree?","mode":"research"}'
-
-# Health check
-curl http://localhost:3000/health
-curl http://localhost:8000/health
-```
+MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
-## Known Limitations
+## 👤 Author
 
-- **Memory confidence** — profile fields are persisted on first match without a confidence threshold. A misheard name in early conversation can persist. A confidence gate (`≥ 0.8` after N confirmations) is planned.
-- **Study planner auth** — the FastAPI server has no authentication. Recommended deployment: bind to `127.0.0.1` only and proxy through the Node.js backend.
-- **In-memory job store** — study plan jobs are lost on Python server restart. The `JOBS: dict` interface in `api_server.py` is isolated for a Redis swap.
-- **No PDF upload endpoint** — `/analyze` and `/plan` accept pre-extracted text. A `POST /upload` endpoint is on the roadmap.
+**Sayan Dutta**
+AI Researcher · BS-MS CSDA · IIT Patna · ORCID: 0009-0006-4747-8820
 
----
-
-## Research Roadmap
-
-Future work focuses on applying research-grade techniques to the learning domain:
-
-- [ ] `POST /upload` — PDF → extract → clean → plan in a single API call
-- [ ] Memory confidence system with `name_conf` threshold
-- [ ] Per-user rate limiting on `/chat` endpoints
-- [ ] Redis job store for the study planner
-- [ ] **Adaptive Learning Agents** — dynamic difficulty adjustment based on interaction history
-- [ ] **Long-Term Educational Memory** — spaced repetition signals integrated into the memory layer
-- [ ] **Retrieval-Augmented Learning** — embedding-based context retrieval (cosine similarity) replacing keyword overlap
-- [ ] **Knowledge Graph Construction** — topic relationship modeling from syllabus structure
-- [ ] **Personalized Assessment Generation** — quiz and problem generation tuned to user weak areas
-- [ ] **Mastery-Aware Study Planning** — scheduler that re-weights topics based on self-assessed confidence over time
-- [ ] Docker Compose setup (Node + Python + Ollama)
-- [ ] Admin dashboard for user management
-- [ ] Mobile-responsive chat UI improvements
-
----
-
-## License
-
-ISC — see [LICENSE](LICENSE) for details.
+[![Portfolio](https://img.shields.io/badge/Portfolio-sayandutta.netlify.app-4f46e5?style=flat-square&logo=safari&logoColor=white)](https://sayandutta.netlify.app)
+[![GitHub](https://img.shields.io/badge/GitHub-SAYANDUTTA8442-0f172a?style=flat-square&logo=github&logoColor=white)](https://github.com/SAYANDUTTA8442)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-sayandutta8653128442-0a66c2?style=flat-square&logo=linkedin&logoColor=white)](https://linkedin.com/in/sayandutta8653128442)
+[![ResearchGate](https://img.shields.io/badge/ResearchGate-Sayan--Dutta--19-00ccbb?style=flat-square&logo=researchgate&logoColor=white)](https://www.researchgate.net/profile/Sayan-Dutta-19)
+[![Email](https://img.shields.io/badge/Email-sayandutta.developer@gmail.com-ea4335?style=flat-square&logo=gmail&logoColor=white)](mailto:sayandutta.developer@gmail.com)
 
 ---
 
 <div align="center">
 
-Built by **Sayan Dutta** · IIT Patna · 2026  
-Part of the [Blix.ai](https://github.com/SAYANDUTTA8442/blix.ai) closed beta for engineering students
+*Building intelligent systems that reason, remember, and recover.*
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=0:4f46e5,50:1e1b4b,100:0d1117&height=90&section=footer" width="100%"/>
 
 </div>
