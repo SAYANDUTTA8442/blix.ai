@@ -116,23 +116,23 @@ Blix is organized into **six cooperating subsystems**. Each is independently tes
 The foundation of Blix. Rather than a flat vector store, Blix implements a **hierarchical memory architecture** with three distinct layers:
 
 ```
-┌─────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────┐
 │                   MEMORY HIERARCHY                   │
-├─────────────────────────────────────────────────────┤
+├──────────────────────────────────────────────────────┤
 │  Working Memory    │ Active context window           │
 │                    │ Current task state              │
 │                    │ Attention-weighted retrieval    │
-├─────────────────────────────────────────────────────┤
+├──────────────────────────────────────────────────────┤
 │  Episodic Memory   │ Timestamped conversation turns  │
 │                    │ Temporal decay modeling         │
 │                    │ Confidence-weighted retrieval   │
 │                    │ Session-boundary awareness      │
-├─────────────────────────────────────────────────────┤
+├──────────────────────────────────────────────────────┤
 │  Semantic Memory   │ FAISS vector index              │
 │                    │ Sentence-Transformer embeddings │
 │                    │ Semantic similarity search      │
 │                    │ Cross-session concept linkage   │
-└─────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────┘
 ```
 
 **Key properties:**
@@ -204,10 +204,10 @@ The Workspace is Blix's **executive layer** — the subsystem that coordinates p
 Task arrives
      │
      ▼
-┌─── Planner ──────────────────────────────┐
+┌─── Planner ───────────────────────────────┐
 │  Decomposes task into subtasks            │
 │  Assigns retrieval and reasoning steps    │
-└───────────────────┬──────────────────────┘
+└───────────────────┬───────────────────────┘
                     │
                     ▼
 ┌─── Verifier ─────────────────────────────┐
