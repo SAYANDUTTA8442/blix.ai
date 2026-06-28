@@ -77,8 +77,8 @@ Blix:                  User
                          │
                     Conversation Manager
                          │
-                  ┌──────┴───────────────────────────────┐
-                  │                                      │
+                  ┌──────┴────────────────────────────────┐
+                  │                                       │
            Prompt Builder                    Memory Retrieval Layer
                   │                          ┌────────────┼────────────┐
                   │                   Episodic Mem   Semantic Mem   Belief Store
