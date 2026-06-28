@@ -77,7 +77,7 @@ Blix:                  User
                          │
                     Conversation Manager
                          │
-                  ┌──────┴──────────────────────────────┐
+                  ┌──────┴───────────────────────────────┐
                   │                                      │
            Prompt Builder                    Memory Retrieval Layer
                   │                          ┌────────────┼────────────┐
