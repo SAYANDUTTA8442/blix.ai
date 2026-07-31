@@ -1,0 +1,28 @@
+# Blix v0.2 — AI Tutor with Persistent Memory
+# Python 3.10+ compatible
+# Install: pip install -r requirements.txt
+
+# ── LLM backends ──────────────────────────────────────────────────────────
+# Option A: HuggingFace Transformers (default, fully local)
+torch>=2.0.0
+transformers>=4.40.0
+accelerate>=0.28.0
+
+# Option B: Ollama (alternative backend — install separately from ollama.com)
+ollama>=0.2.0
+
+# ── Semantic embeddings ───────────────────────────────────────────────────
+sentence-transformers>=3.0.0
+scikit-learn>=1.3.0       # TF-IDF fallback + cosine_similarity
+numpy>=1.24.0
+
+# ── Core ──────────────────────────────────────────────────────────────────
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+pyyaml>=6.0
+rapidfuzz>=3.0.0
+rich>=13.0.0
+
+# ── Dev / testing ─────────────────────────────────────────────────────────
+pytest>=7.4.0
+pytest-mock>=3.11.0
